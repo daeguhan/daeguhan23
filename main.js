@@ -639,6 +639,92 @@ function showToast(message, isError = false) {
     }, 3000);
 }
 
+// ================================
+//  내보내기 / 가져오기 유틸리티  
+// ================================
+
+/**
+ * Blob 객체를 a 태그 다운로드 방식으로 저장한다.
+ */
+function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // a 태그와 객체 URL 정리
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+    }, 1000);
+}
+
+/**
+ * JSON 데이터를 파일로 내보낸다. Web Share API 지원 시 공유 시트를 우선 사용한다.
+ */
+function exportDataAsJson(fileName = '성적계산기_데이터') {
+    const cm = window.courseManager;
+    if (!cm) {
+        showToast('데이터가 준비되지 않았습니다.', true);
+        return;
+    }
+
+    const jsonData = cm.exportToJson();
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const finalFileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+
+    // Web Share API (모바일) 지원 여부 확인
+    const supportsShare = !!navigator.canShare && navigator.canShare({ files: [new File([blob], finalFileName, { type: 'application/json' })] });
+    if (supportsShare) {
+        const file = new File([blob], finalFileName, { type: 'application/json' });
+        navigator.share({ files: [file], title: '성적 계산기 데이터 내보내기' })
+            .catch(() => {
+                // 공유 실패 시 다운로드로 대체
+                downloadBlob(blob, finalFileName);
+            })
+            .finally(() => {
+                showToast('데이터가 내보내기되었습니다.');
+            });
+    } else {
+        // 다운로드 방식
+        downloadBlob(blob, finalFileName);
+        showToast('데이터가 내보내기되었습니다.');
+    }
+}
+
+/**
+ * 선택된 파일을 읽어들여 JSON 파싱 및 import 처리
+ */
+function handleImportFile(file) {
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+        showToast('JSON 파일만 선택 가능합니다.', true);
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const jsonData = e.target.result;
+
+        // 기존 데이터가 있으면 사용자 확인
+        if (window.courseManager.courses.length > 0) {
+            const confirmed = confirm('기존 데이터를 모두 덮어쓰고 가져오시겠습니까?');
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        window.courseManager.importFromJson(jsonData);
+    };
+    reader.onerror = () => {
+        showToast('파일 읽기 중 오류가 발생했습니다.', true);
+    };
+    reader.readAsText(file);
+}
+
 // 초기화 및 이벤트 리스너 설정
 document.addEventListener('DOMContentLoaded', () => {
     // 과목 관리자 초기화
@@ -651,39 +737,24 @@ document.addEventListener('DOMContentLoaded', () => {
         courseManager.addCourse();
     });
     
-    // 데이터 내보내기
+    // "데이터 내보내기" 버튼 이벤트 리스너 (UX 개선)
     document.getElementById('export-btn').addEventListener('click', () => {
-        const jsonData = courseManager.exportToJson();
-        const blob = new Blob([jsonData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = '성적계산기_데이터.json';
-        a.click();
-        
-        URL.revokeObjectURL(url);
-        showToast('데이터가 내보내기되었습니다.');
+        const defaultName = `성적계산기_${new Date().toISOString().slice(0, 10)}`;
+        const fileName = prompt('내보낼 파일 이름을 입력하세요', defaultName);
+        if (fileName === null) return; // 취소
+        exportDataAsJson(fileName.trim() === '' ? defaultName : fileName.trim());
     });
     
-    // 데이터 가져오기 (파일 선택 대화상자)
+    // "데이터 가져오기" 버튼 → 파일 선택 다이얼로그 트리거
     document.getElementById('import-btn').addEventListener('click', () => {
         document.getElementById('import-file').click();
     });
     
-    // 파일 선택 시 처리
+    // 파일 선택 시 처리 (UX 개선 및 오류 처리 추가)
     document.getElementById('import-file').addEventListener('change', (event) => {
         const file = event.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const jsonData = e.target.result;
-            courseManager.importFromJson(jsonData);
-        };
-        reader.readAsText(file);
-        
-        // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
+        handleImportFile(file);
+        // 같은 파일을 다시 선택할 수 있도록 value 초기화
         event.target.value = '';
     });
 }); 
