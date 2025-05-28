@@ -61,8 +61,9 @@ class Item {
         const maxScoreCell = document.createElement('td');
         const maxScoreInput = document.createElement('input');
         maxScoreInput.type = 'number';
-        maxScoreInput.inputMode = 'numeric';
-        maxScoreInput.min = '1';
+        maxScoreInput.inputMode = 'decimal';
+        maxScoreInput.step = '0.01';
+        maxScoreInput.min = '0.01';
         maxScoreInput.value = this.maxScore;
         maxScoreInput.placeholder = '만점';
         maxScoreInput.addEventListener('input', () => {
@@ -75,7 +76,8 @@ class Item {
         const weightCell = document.createElement('td');
         const weightInput = document.createElement('input');
         weightInput.type = 'number';
-        weightInput.inputMode = 'numeric';
+        weightInput.inputMode = 'decimal';
+        weightInput.step = '0.01';
         weightInput.min = '0';
         weightInput.value = this.weight;
         weightInput.placeholder = '가중치(%)';
@@ -89,7 +91,8 @@ class Item {
         const myScoreCell = document.createElement('td');
         const myScoreInput = document.createElement('input');
         myScoreInput.type = 'number';
-        myScoreInput.inputMode = 'numeric';
+        myScoreInput.inputMode = 'decimal';
+        myScoreInput.step = '0.01';
         myScoreInput.min = '0';
         myScoreInput.max = this.maxScore.toString();
         myScoreInput.value = this.myScore;
@@ -103,7 +106,7 @@ class Item {
         // 반영 점수 (계산값, 읽기 전용)
         const reflectedScoreCell = document.createElement('td');
         reflectedScoreCell.classList.add('reflected-score');
-        reflectedScoreCell.textContent = this.calculateReflectedScore().toFixed(2);
+        reflectedScoreCell.textContent = formatNumber(this.calculateReflectedScore());
         
         // 삭제 버튼
         const deleteCell = document.createElement('td');
@@ -148,7 +151,7 @@ class Item {
         
         // 반영 점수 업데이트
         const reflectedScoreCell = this.element.querySelector('.reflected-score');
-        reflectedScoreCell.textContent = this.calculateReflectedScore().toFixed(2);
+        reflectedScoreCell.textContent = formatNumber(this.calculateReflectedScore());
     }
 }
 
@@ -339,7 +342,7 @@ class Course {
         // 총점 계산 및 표시
         const totalResult = this.calculateTotalScore();
         const totalScoreElement = this.element.querySelector('.total-score');
-        totalScoreElement.textContent = totalResult.score.toFixed(2);
+        totalScoreElement.textContent = formatNumber(totalResult.score);
         
         // 가중치 경고 표시/숨김
         const weightWarning = this.element.querySelector('.weight-warning');
@@ -466,7 +469,7 @@ class CourseManager {
         totalCoursesElement.textContent = this.courses.length;
         
         if (this.courses.length === 0) {
-            totalAverageElement.textContent = '0.0';
+            totalAverageElement.textContent = '0';
             return;
         }
         
@@ -476,7 +479,7 @@ class CourseManager {
         });
         
         const average = totalScores.reduce((sum, score) => sum + score, 0) / totalScores.length;
-        totalAverageElement.textContent = average.toFixed(2);
+        totalAverageElement.textContent = formatNumber(average);
     }
 
     // 모든 과목 렌더링
@@ -757,4 +760,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 같은 파일을 다시 선택할 수 있도록 value 초기화
         event.target.value = '';
     });
-}); 
+});
+
+// 소수점 표시 유틸리티 함수 (불필요한 뒷자리 0 제거)
+function formatNumber(num) {
+    return parseFloat(num.toFixed(2)).toString();
+} 
